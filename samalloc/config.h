@@ -4,11 +4,11 @@
 #include <stddef.h>
 
 #ifndef USE_MUTEX
-    #define USE_MUTEX 0
+    #define USE_MUTEX 1
 #endif
 
 #ifndef MALLOC_DEBUG
-    #define MALLOC_DEBUG 1
+    #define MALLOC_DEBUG 0
 #endif
 
 //-------- Strategies ---------

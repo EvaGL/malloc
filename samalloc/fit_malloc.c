@@ -1,8 +1,11 @@
+#include <assert.h>
+
 #include "config.h"
 #include "debug.h"
 #include "heap.h"
 #include "morecore.h"
 #include "fit_malloc.h"
+
 
 #if USE_MUTEX == 1
     #include <pthread.h>
@@ -60,6 +63,7 @@ void merge_block(header_p h)
     if (h != last_block)
     {
         header_p next = ((void *) h) + block_size(h) + META_SIZE;
+        MDEBUG("merge: next - %p\n", next);
         if (is_free(next)) 
         {
             h->next = next->next;
@@ -67,12 +71,14 @@ void merge_block(header_p h)
             set_free(h);
             if (next == last_block)
                 last_block = h;
+            MDEBUG("merge blocks %p and %p\n", h, next);
         }
     }
     if (h != first_block)
     {
         footer_p prev_foot = ((void *) h) - FOOTER_SIZE;
         header_p prev = ((void*) prev_foot) - prev_foot->size - HEADER_SIZE;
+        MDEBUG("merge: prev - %p\n", prev);
         if (is_free(prev))
         {
             prev->next = h->next;
@@ -80,6 +86,7 @@ void merge_block(header_p h)
             set_free(prev);
             if (h == last_block)
                 last_block = prev;
+            MDEBUG("merge blocks %p and %p\n", prev, h);
         }
     }
 }
@@ -112,10 +119,14 @@ header_p find_fit_block(size_t size)
         }
         if (curr->next == last && !find_one)
         {
-            header_p new_block = morecore(size);
+            header_p new_block = morecore(size + META_SIZE);
             last_block = new_block;
             insert_block(&heap, new_block, curr, last);
-            merge_block(curr);
+            if (is_free(curr))
+            {
+                merge_block(curr);
+                continue;
+            }
         }
         curr = curr->next;
     }
@@ -155,6 +166,11 @@ void* fit_malloc(size_t size)
         split_block(block, size);
     heap_unlock(lock);
     MDEBUG("fit_malloc: returning %p\n", payload(block));
+    
+    assert(block_size(block) >= size);
+    assert(payload(block) >= (void*)first_block);
+    assert((void*) footer(block) <= sbrk(0));
+
     return payload(block);
 }
 
