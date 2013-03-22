@@ -1,24 +1,25 @@
+#include <malloc.h>
 #include "config.h"
 
-#include "fit_malloc.h"
 
 #ifdef FITTING
+    #include "fit_malloc.h"
     #define __malloc(s) fit_malloc(s)
     #define __free(p) fit_free(p)
 #endif
 
-void *malloc(size_t size)
+void *malloc(size_t size, const void* caller)
 {
     void* ans = __malloc(size);
-    print_heap_dump();
+//    print_heap_dump();
     return ans;
 }
 
-void free(void *ptr)
+void free(void *ptr, const void* caller)
 {
     __free(ptr);
 }
-
+/*
 void calloc(size_t nmemb, size_t lsize)
 {
     void* result;
@@ -43,3 +44,4 @@ void realloc(void *ptr, size_t size)
     __free(ptr);
     return __malloc(size);
 }
+*/

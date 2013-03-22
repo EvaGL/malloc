@@ -15,6 +15,8 @@
 #endif
 
 header_p heap = NULL;
+header_p first_block = NULL;
+header_p last_block = NULL;
 
 void init_heap()
 {
@@ -22,7 +24,7 @@ void init_heap()
     pthread_mutexattr_t mta;
     pthread_mutexattr_init(&mta);
     pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_RECURSIVE);
-    pthread_mutex_init(&lock, NULL);//&mta);
+    pthread_mutex_init(&lock, &mta);
     pthread_mutexattr_destroy(&mta);
 #endif
 }
@@ -41,12 +43,45 @@ void print_heap_dump()
 
 void split_block(header_p h, size_t size)
 {
-    header_p new_block = payload(h) + size;
-    new_block->size = block_size(h) - size - HEADER_SIZE;
-    h->size = size;
+    header_p new_block = payload(h) + size + FOOTER_SIZE;
+    set_size(new_block, block_size(h) - size - META_SIZE);
+    set_size(h, size);
     insert_block(&heap, new_block, h, h->next);
     set_free(new_block);
+    if (last_block == h)
+        last_block = new_block;
     MDEBUG("split block %p to %p(%d) and %p(%d)\n", h, h, size, new_block, block_size(new_block)); 
+}
+
+void merge_block(header_p h)
+{
+    if (!is_free(h))
+        return;
+    if (h != last_block)
+    {
+        header_p next = ((void *) h) + block_size(h) + META_SIZE;
+        if (is_free(next)) 
+        {
+            h->next = next->next;
+            set_size(h, block_size(h) + block_size(next) + META_SIZE);
+            set_free(h);
+            if (next == last_block)
+                last_block = h;
+        }
+    }
+    if (h != first_block)
+    {
+        footer_p prev_foot = ((void *) h) - FOOTER_SIZE;
+        header_p prev = ((void*) prev_foot) - prev_foot->size - HEADER_SIZE;
+        if (is_free(prev))
+        {
+            prev->next = h->next;
+            set_size(prev, block_size(prev) + block_size(h) + META_SIZE);
+            set_free(prev);
+            if (h == last_block)
+                last_block = prev;
+        }
+    }
 }
 
 header_p find_fit_block(size_t size)
@@ -78,14 +113,9 @@ header_p find_fit_block(size_t size)
         if (curr->next == last && !find_one)
         {
             header_p new_block = morecore(size);
-            new_block->size = size;
-            set_free(new_block);
+            last_block = new_block;
             insert_block(&heap, new_block, curr, last);
-            if (is_free(curr)) 
-            {
-                merge_blocks(curr, new_block);
-                continue;
-            }
+            merge_block(curr);
         }
         curr = curr->next;
     }
@@ -95,7 +125,7 @@ header_p find_fit_block(size_t size)
 void* fit_malloc(size_t size)
 {
     MDEBUG("fit_malloc: size= %d\n", size); 
-    size_t s = alloc_align(size + HEADER_SIZE);   
+    size_t s = alloc_align(size + META_SIZE);   
     size = alloc_align(size);
     header_p block;
     heap_lock(lock);
@@ -109,6 +139,8 @@ void* fit_malloc(size_t size)
             return NULL;
         }
         insert_block(&heap, block, NULL, NULL);
+        first_block = block;
+        last_block = block;
     } else {
         block = find_fit_block(s);
         if (block == NULL) 
@@ -119,7 +151,7 @@ void* fit_malloc(size_t size)
     }
 
     set_used(block);
-    if (block_size(block) > size + HEADER_SIZE)
+    if (block_size(block) > size + META_SIZE)
         split_block(block, size);
     heap_unlock(lock);
     MDEBUG("fit_malloc: returning %p\n", payload(block));
@@ -135,8 +167,9 @@ void fit_free(void* ptr)
     for(; curr != last; curr = curr->next)
         if (payload(curr) == ptr)
         {
-    //        MDEBUG("fit_free: set block %p with size=%d as free\n", curr, block_szie(curr));
+//            MDEBUG("fit_free: set block %p with size=%d as free\n", curr, block_szie(curr));
             set_free(curr);
+            merge_block(curr);
             break;
         }
     heap_unlock(lock);

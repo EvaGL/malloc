@@ -34,7 +34,7 @@
 #endif
 //------------------------------
 
-#define ALIGN_LOG 3
+#define ALIGN_LOG 2
 #define SBRK_AL_LOG 12
 
 #define AA (1 << ALIGN_LOG)
