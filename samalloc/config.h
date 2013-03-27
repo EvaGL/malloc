@@ -29,7 +29,7 @@
 
 #ifndef ALLOC_STRATEGY
     #define ALLOC_STRATEGY
-    #define FIRST_FIT
+    #define WORST_FIT
     #define FITTING
 #endif
 //------------------------------

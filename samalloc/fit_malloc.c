@@ -23,7 +23,7 @@ header_p last_block = NULL;
 
 void init_heap()
 {
-#if USE_MUTEX == 1
+#if USE_MUTEX == 666
     pthread_mutexattr_t mta;
     pthread_mutexattr_init(&mta);
     pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_RECURSIVE);
@@ -39,7 +39,8 @@ void print_heap_dump()
     header_p last = NULL;
     for (; curr != last; curr = curr->next)
     {
-        MDEBUG("%p %c size = %d\n", payload(curr), (is_free(curr)) ? 'f' : 'u', block_size(curr));       
+        MDEBUG("%p-%p %c %4db at %p-%p\n", curr, (void*)(footer(curr)) + FOOTER_SIZE - 1,
+        (is_free(curr)) ? 'f' : 'u', block_size(curr), payload(curr), ((void*)footer(curr)) - 1);       
     }
     MDEBUG("================================\n");
 }
@@ -186,8 +187,11 @@ void fit_free(void* ptr)
 //            MDEBUG("fit_free: set block %p with size=%d as free\n", curr, block_szie(curr));
             set_free(curr);
             merge_block(curr);
-            break;
+            heap_unlock(lock);
+            return;
         }
-    heap_unlock(lock);
+    MDEBUG("Invalid pointer!!! %p\n", ptr);
+    print_heap_dump();
+    exit(1);
 }
 
