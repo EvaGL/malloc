@@ -8,7 +8,7 @@
 #endif
 
 #ifndef MALLOC_DEBUG
-    #define MALLOC_DEBUG 0
+    #define MALLOC_DEBUG 1
 #endif
 
 //-------- Strategies ---------
