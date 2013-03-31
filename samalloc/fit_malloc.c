@@ -6,7 +6,6 @@
 #include "morecore.h"
 #include "fit_malloc.h"
 
-
 #if USE_MUTEX == 1
     #define __USE_GNU
     #include <pthread.h>
@@ -28,21 +27,8 @@ size_t used_mem;
 size_t free_mem;
 size_t total_mem;
 
-struct mallinfo
-{
-  int arena;    /* non-mmapped space allocated from system */
-  int ordblks;  /* number of free chunks */
-  int smblks;   /* number of fastbin blocks */
-  int hblks;    /* number of mmapped regions */
-  int hblkhd;   /* space in mmapped regions */
-  int usmblks;  /* maximum total allocated space */
-  int fsmblks;  /* space available in freed fastbin blocks */
-  int uordblks; /* total allocated space */
-  int fordblks; /* total free space */
-  int keepcost; /* top-most, releasable (via malloc_trim) space */
-};
 
-struct mallinfo mallinfo() {
+struct mallinfo fit_mallinfo() {
     struct mallinfo mi;
     int keepcost = ((void*)footer(last_block)) - ((void*) first_block);
     mi = (struct mallinfo){total_mem, free_bl, 0, 0, 0, 0, 0, used_mem, free_mem, keepcost};

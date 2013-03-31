@@ -52,6 +52,10 @@ void *realloc(void *ptr, size_t size)
     __free(ptr);
     return  __malloc(size);
 }
+
+struct mallinfo mallinfo() {
+    return __mallinfo();
+}
 /*
 static void my_init_hook (void)
 {
