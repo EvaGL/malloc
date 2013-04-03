@@ -8,9 +8,10 @@
 #endif
 
 #ifndef MALLOC_DEBUG
-    #define MALLOC_DEBUG 1
+    #define MALLOC_DEBUG 0
 #endif
 
+#define MAX_HEAP_SIZE 4096
 //-------- Strategies ---------
 #ifdef FIRST_FIT
     #define ALLOC_STRATEGY
