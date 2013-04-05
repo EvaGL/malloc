@@ -18,6 +18,8 @@
 #endif
 
 header_p heap = NULL;
+header_p used_heap = NULL;
+
 header_p first_block = NULL;
 header_p last_block = NULL;
 
@@ -34,6 +36,7 @@ struct mallinfo fit_mallinfo() {
     mi = (struct mallinfo){total_mem, free_bl, 0, 0, 0, 0, 0, used_mem, free_mem, keepcost};
     return mi;
 }
+
 void init_heap()
 {
     used_bl = 0;
@@ -52,14 +55,30 @@ void fit_print_heap_dump()
     MDEBUG("Free memory        : %d\n", free_mem);
     MDEBUG("Used memory        : %d\n", used_mem);
     MDEBUG("========= HEAP DUMP ============\n");
-    header_p curr = heap;
-    header_p last = NULL;
-    for (; curr != last; curr = curr->next)
+    header_p curr = first_block;
+    header_p last = ((void*)last_block) + block_size(curr) + META_SIZE;
+    for (; curr < last; curr = ((void*)curr) + block_size(curr) + META_SIZE)
     {
         MDEBUG("%p-%p %c %4db at %p-%p\n", curr, (void*)(footer(curr)) + FOOTER_SIZE - 1,
         (is_free(curr)) ? 'f' : 'u', block_size(curr), payload(curr), ((void*)footer(curr)) - 1);       
     }
     MDEBUG("================================\n");
+    #ifdef FIT_DELETE_USED
+    curr = heap;
+    for (; curr != NULL; curr = curr->next)
+    {
+        MDEBUG("%p-%p %c %4db at %p-%p\n", curr, (void*)(footer(curr)) + FOOTER_SIZE - 1,
+        (is_free(curr)) ? 'f' : 'u', block_size(curr), payload(curr), ((void*)footer(curr)) - 1);       
+    }
+    MDEBUG("================================\n");
+    curr = used_heap;
+    for (; curr != NULL; curr = curr->next)
+    {
+        MDEBUG("%p-%p %c %4db at %p-%p\n", curr, (void*)(footer(curr)) + FOOTER_SIZE - 1,
+        (is_free(curr)) ? 'f' : 'u', block_size(curr), payload(curr), ((void*)footer(curr)) - 1);       
+    }
+    MDEBUG("================================\n");
+    #endif
 }
 
 void split_block(header_p h, size_t size)
@@ -203,6 +222,11 @@ void* fit_malloc(size_t size)
     if (block_size(block) > size + META_SIZE)
         split_block(block, size);
     set_used(block);
+    
+    #ifdef FIT_DELETE_USED
+    delete_block(&heap, block, block->prev, block->next);
+    insert_block(&used_heap, block, NULL, used_heap);
+    #endif
     // stats
     used_bl++;
     free_bl--;
@@ -224,7 +248,11 @@ void fit_free(void* ptr)
     heap_lock(lock);
     MDEBUG("fit_free: ptr= %p\n", ptr);
     header_p last = NULL;
+    #ifndef FIT_DELETE_USED
     header_p curr = heap;
+    #else
+    header_p curr = used_heap;
+    #endif
     for(; curr != last; curr = curr->next)
         if (payload(curr) == ptr)
         {
@@ -232,11 +260,16 @@ void fit_free(void* ptr)
             set_free(curr);
             // stats
             free_bl++;
-            used_bl++;
+            used_bl--;
             used_mem -= block_size(curr);
             free_mem += block_size(curr);
             // -----
+            #ifdef FIT_DELETE_USED
+            delete_block(&used_heap, curr, curr->prev, curr->next); 
+            insert_block(&heap, curr, NULL, heap);
+            #endif
             merge_block(curr);
+
             heap_unlock(lock);
             return;
         }
