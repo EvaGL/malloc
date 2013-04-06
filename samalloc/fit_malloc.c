@@ -29,6 +29,7 @@ size_t used_mem;
 size_t free_mem;
 size_t total_mem;
 
+static struct free_block_header null_block;
 
 struct mallinfo fit_mallinfo() {
     struct mallinfo mi;
@@ -44,7 +45,12 @@ void init_heap()
     used_mem = 0;
     free_mem = 0;
     total_mem = 0;
+    null_block.size = 0;
+    null_block.prev = NULL;
+    null_block.next = NULL;
+    heap = &null_block;
 }
+
 
 void fit_print_heap_dump()
 {
@@ -67,6 +73,7 @@ void fit_print_heap_dump()
     curr = heap;
     for (; curr != NULL; curr = curr->next)
     {
+        if (block_size(curr) != NULL)
         MDEBUG("%p-%p %c %4db at %p-%p\n", curr, (void*)(footer(curr)) + FOOTER_SIZE - 1,
         (is_free(curr)) ? 'f' : 'u', block_size(curr), payload(curr), ((void*)footer(curr)) - 1);       
     }
@@ -207,7 +214,7 @@ void* fit_malloc(size_t size)
         free_mem += block_size(block);
         free_bl++;
         // stats
-        insert_block(&heap, block, NULL, NULL);
+        insert_block(&heap, block, heap, NULL);
         first_block = block;
         last_block = block;
     } else {
@@ -266,7 +273,7 @@ void fit_free(void* ptr)
             // -----
             #ifdef FIT_DELETE_USED
             delete_block(&used_heap, curr, curr->prev, curr->next); 
-            insert_block(&heap, curr, NULL, heap);
+            insert_block(&heap, curr, heap, heap->next);
             #endif
             merge_block(curr);
 
