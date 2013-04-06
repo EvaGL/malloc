@@ -12,8 +12,8 @@
 #endif
 
 //#define MAX_HEAP_SIZE 4096
-
 #define FIT_DELETE_USED
+//#define ALLOW_MERGE
 //-------- Strategies ---------
 #ifdef FIRST_FIT
     #define ALLOC_STRATEGY
@@ -32,7 +32,7 @@
 
 #ifndef ALLOC_STRATEGY
     #define ALLOC_STRATEGY
-    #define WORST_FIT
+    #define BEST_FIT
     #define FITTING
 #endif
 //------------------------------

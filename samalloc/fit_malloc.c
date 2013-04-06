@@ -105,6 +105,7 @@ void split_block(header_p h, size_t size)
 
 void merge_block(header_p h)
 {
+#ifdef ALLOW_MERGE
     if (!is_free(h))
         return;
     if (h != last_block)
@@ -142,6 +143,7 @@ void merge_block(header_p h)
             free_mem += META_SIZE;
         }
     }
+#endif
 }
 
 header_p find_fit_block(size_t size)
