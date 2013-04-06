@@ -13,7 +13,8 @@
 
 //#define MAX_HEAP_SIZE 4096
 #define FIT_DELETE_USED
-//#define ALLOW_MERGE
+#define ROUND_ROBIN
+#define ALLOW_MERGE
 //-------- Strategies ---------
 #ifdef FIRST_FIT
     #define ALLOC_STRATEGY

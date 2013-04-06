@@ -46,8 +46,13 @@ void init_heap()
     free_mem = 0;
     total_mem = 0;
     null_block.size = 0;
+    #ifndef ROUND_ROBIN
     null_block.prev = NULL;
     null_block.next = NULL;
+    #else
+    null_block.prev = &null_block;
+    null_block.next = &null_block;
+    #endif
     heap = &null_block;
 }
 
@@ -71,11 +76,14 @@ void fit_print_heap_dump()
     MDEBUG("================================\n");
     #ifdef FIT_DELETE_USED
     curr = heap;
-    for (; curr != NULL; curr = curr->next)
+    while(1)
     {
         if (block_size(curr) != NULL)
         MDEBUG("%p-%p %c %4db at %p-%p\n", curr, (void*)(footer(curr)) + FOOTER_SIZE - 1,
         (is_free(curr)) ? 'f' : 'u', block_size(curr), payload(curr), ((void*)footer(curr)) - 1);       
+        curr = curr->next;
+        if (curr == NULL || curr == heap)
+            break;
     }
     MDEBUG("================================\n");
     curr = used_heap;
@@ -103,7 +111,7 @@ void split_block(header_p h, size_t size)
     free_mem -= META_SIZE;
 }
 
-void merge_block(header_p h)
+header_p merge_block(header_p h)
 {
 #ifdef ALLOW_MERGE
     if (!is_free(h))
@@ -114,11 +122,16 @@ void merge_block(header_p h)
         MDEBUG("merge: next - %p\n", next);
         if (is_free(next)) 
         {
-            h->next = next->next;
+            if (next->next != NULL)
+                next->next->prev = next->prev;
+            if (next->prev != NULL)
+                next->prev->next = next->next;
             set_size(h, block_size(h) + block_size(next) + META_SIZE);
             set_free(h);
             if (next == last_block)
                 last_block = h;
+            if (heap == next)
+                heap = h;
             MDEBUG("merge blocks %p and %p\n", h, next);
             // stats
             free_bl--;
@@ -132,24 +145,35 @@ void merge_block(header_p h)
         MDEBUG("merge: prev - %p\n", prev);
         if (is_free(prev))
         {
-            prev->next = h->next;
+            if (h->next != NULL)
+                h->next->prev = h->prev;
+            if (h->prev != NULL)
+                h->prev->next = h->next;
             set_size(prev, block_size(prev) + block_size(h) + META_SIZE);
             set_free(prev);
             if (h == last_block)
                 last_block = prev;
+            if (heap == h)
+                heap = prev;
             MDEBUG("merge blocks %p and %p\n", prev, h);
             // stats
             free_bl--;
             free_mem += META_SIZE;
+            h = prev;
         }
     }
 #endif
+    return h;
 }
 
 header_p find_fit_block(size_t size)
 {
     header_p curr = heap;
+    #ifdef ROUND_ROBIN
+    header_p last = heap;
+    #else
     header_p last = NULL;
+    #endif
     int find_one = 0;
     header_p our_choose = NULL;
     int fitting_param;
@@ -172,26 +196,31 @@ header_p find_fit_block(size_t size)
             #endif
             find_one = 1; 
         }
-        if (curr->next == last && !find_one)
-        {
-            header_p new_block = morecore(size + META_SIZE);
-            if (new_block == NULL)
-                return NULL;
-            // stats
-            total_mem += block_size(new_block) + META_SIZE;
-            free_mem += block_size(new_block);
-            free_bl++;
-            //-----
-            last_block = new_block;
-            insert_block(&heap, new_block, curr, last);
-            if (is_free(curr))
-            {
-                merge_block(curr);
-                continue;
-            }
-        }
+        if (curr->next == last)
+            break;
         curr = curr->next;
     }
+
+    if (!find_one)
+    {
+        our_choose = morecore(size + META_SIZE);
+        if (our_choose == NULL)
+            return NULL;
+        total_mem += block_size(our_choose) + META_SIZE;
+        free_mem += block_size(our_choose);
+        free_bl++;
+        if (first_block == NULL)
+            first_block = our_choose;
+        last_block = our_choose;
+        insert_block(&heap, our_choose, curr, last);
+        if (is_free(curr))
+        {
+            our_choose = merge_block(curr);
+        }
+    }
+    #ifdef ROUND_ROBIN
+    heap = our_choose->next;
+    #endif
     return our_choose;
 }
 
@@ -205,7 +234,8 @@ void* fit_malloc(size_t size)
     if (heap == NULL)
     {
         init_heap();
-        block = morecore(s);
+    }
+    /*    block = morecore(s);
         if (block == NULL)
         {
             heap_unlock(lock);
@@ -216,17 +246,18 @@ void* fit_malloc(size_t size)
         free_mem += block_size(block);
         free_bl++;
         // stats
-        insert_block(&heap, block, heap, NULL);
+        insert_block(&heap, block, heap, heap->next);
         first_block = block;
         last_block = block;
     } else {
+    */
         block = find_fit_block(s);
         if (block == NULL) 
         {
             heap_unlock(lock);
             return NULL;
         }
-    }
+   // }
 
     if (block_size(block) > size + META_SIZE)
         split_block(block, size);
