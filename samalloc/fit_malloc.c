@@ -56,7 +56,7 @@ void fit_print_heap_dump()
     MDEBUG("Used memory        : %d\n", used_mem);
     MDEBUG("========= HEAP DUMP ============\n");
     header_p curr = first_block;
-    header_p last = ((void*)last_block) + block_size(curr) + META_SIZE;
+    header_p last = ((void*)last_block) + block_size(last_block) + META_SIZE;
     for (; curr < last; curr = ((void*)curr) + block_size(curr) + META_SIZE)
     {
         MDEBUG("%p-%p %c %4db at %p-%p\n", curr, (void*)(footer(curr)) + FOOTER_SIZE - 1,

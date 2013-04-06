@@ -11,7 +11,7 @@
     #define MALLOC_DEBUG 1
 #endif
 
-#define MAX_HEAP_SIZE 4096
+//#define MAX_HEAP_SIZE 4096
 
 //#define FIT_DELETE_USED
 //-------- Strategies ---------
