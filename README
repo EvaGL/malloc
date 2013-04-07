@@ -1,0 +1,21 @@
+После сборки в папке lib будет две библиотеки libsamalloc.so и malloc.so
+1. Если не использовать функций, которые есть только у меня (как print_heap_dump())
+    env LD_PRELOAD=/path/to/lib/malloc.so program_to_run
+2. Если их использвать, то собирать и запускать нужно вместе с libmalloc.so
+    ключи компиляции : -I/path/to/include -L/path/to/lib -lsamalloc
+    запускать : env LD_LIBRARY_PATH=/path/to/lib program_to_run
+   При этом нужно использовать samalloc, а не malloc
+
+Куча конфигурируется изменением src/config.h:
+    #define FIRST_FIT
+    #define WORST_FIT
+    #define BEST_FIT - включает одну из стратегий
+    (не писать несколько, все может пойти плохо)
+
+    #define MALLOC_DEBUG 1 - отладочный вывод (0 - отключить)
+    #deine MAX_HEAP_SIZE val - ограничивает размер кучи val байт
+    #define FIT_DELETE_USED - смотреть только свободные блоки
+    #define ALLOW_MERGE - разрешает сливать соседние свободные блоки
+    #define ROUND_ROBIN - искать блок, начиная с места, на котором остановились
+
+После конфигурации все нужно пересобрать
