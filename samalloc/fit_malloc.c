@@ -38,6 +38,24 @@ struct mallinfo fit_mallinfo() {
     return mi;
 }
 
+struct myinfo fit_myinfo() {
+    struct myinfo mi;
+    mi = (struct myinfo){total_mem, free_mem, used_mem, free_bl, used_bl, 0};
+    header_p curr = heap;
+    while (curr != NULL) {
+        int s = block_size(curr);
+        if (is_free(curr) && s > mi.maxfreeblk)
+        {
+            mi.maxfreeblk = s;
+        }
+        if (curr->next == heap)
+            break;
+        curr = curr->next;
+    }
+    return mi; 
+}
+
+
 void init_heap()
 {
     used_bl = 0;
@@ -213,10 +231,7 @@ header_p find_fit_block(size_t size)
             first_block = our_choose;
         last_block = our_choose;
         insert_block(&heap, our_choose, curr, last);
-        if (is_free(curr))
-        {
-            our_choose = merge_block(curr);
-        }
+        our_choose = merge_block(our_choose);
     }
     #ifdef ROUND_ROBIN
     heap = our_choose->next;
@@ -235,29 +250,12 @@ void* fit_malloc(size_t size)
     {
         init_heap();
     }
-    /*    block = morecore(s);
-        if (block == NULL)
-        {
-            heap_unlock(lock);
-            return NULL;
-        }
-        // stats
-        total_mem += block_size(block) + META_SIZE;
-        free_mem += block_size(block);
-        free_bl++;
-        // stats
-        insert_block(&heap, block, heap, heap->next);
-        first_block = block;
-        last_block = block;
-    } else {
-    */
-        block = find_fit_block(s);
-        if (block == NULL) 
-        {
-            heap_unlock(lock);
-            return NULL;
-        }
-   // }
+    block = find_fit_block(s);
+    if (block == NULL) 
+    {
+        heap_unlock(lock);
+        return NULL;
+    }
 
     if (block_size(block) > size + META_SIZE)
         split_block(block, size);
@@ -273,12 +271,17 @@ void* fit_malloc(size_t size)
     used_mem += block_size(block);
     free_mem -= block_size(block);
     // stats
-    heap_unlock(lock);
     MDEBUG("fit_malloc: returning %p\n", payload(block));
-    
-    assert(block_size(block) >= size);
-    assert(payload(block) >= (void*)first_block);
-    assert((void*) footer(block) <= sbrk(0));
+   
+    if (!(block_size(block) >= size &&
+        payload(block) >= (void*) first_block &&
+        (void*) footer(block) <= sbrk(0)))
+    {
+        MDEBUG("Malloc error!!! %d\n", size);
+        fit_print_heap_dump();
+        exit(1);
+    }
+    heap_unlock(lock);
 
     return payload(block);
 }

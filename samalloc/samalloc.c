@@ -5,14 +5,14 @@
     #include "fit_malloc.h"
 #endif
               
-void *malloc(size_t size)
+void *samalloc(size_t size)
 {
     MDEBUG("Allocate %d byte\n", size);
     void* ans = __malloc(size);
     return ans;
 }
 
-void free(void *ptr)
+void safree(void *ptr)
 {
     if (!ptr)
         return;
@@ -20,7 +20,7 @@ void free(void *ptr)
     __free(ptr);
 }
 
-void *calloc(size_t nmemb, size_t lsize)
+void *sacalloc(size_t nmemb, size_t lsize)
 {
     void* result;
     size_t size = nmemb * lsize;
@@ -34,7 +34,7 @@ void *calloc(size_t nmemb, size_t lsize)
     return result;
 }
 
-void *realloc(void *ptr, size_t size)
+void *sarealloc(void *ptr, size_t size)
 {
     if (!size)
     {
@@ -49,6 +49,14 @@ void *realloc(void *ptr, size_t size)
     return  __malloc(size);
 }
 
-struct mallinfo mallinfo() {
+struct mallinfo samallinfo() {
     return __mallinfo();
+}
+
+void print_heap_dump(){
+  __print_heap_dump();
+}
+
+struct myinfo myinfo() {
+    return __myinfo();
 }
