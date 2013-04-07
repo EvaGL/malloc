@@ -12,4 +12,8 @@ struct myinfo
 
 void print_heap_dump();
 struct myinfo myinfo();
+void *samalloc(size_t size);
+void safree(void *ptr);
+void *sacalloc(size_t nmemb, size_t lsize);
+void *sarealloc(void* ptr, size_t size);
 #endif
