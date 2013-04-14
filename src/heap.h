@@ -48,10 +48,10 @@ static __inline__ void *payload(header_p h)
 
 static __inline__ footer_p footer(header_p h)
 {
-    return ((void*) h) + HEADER_SIZE + block_size(h);
+    return (footer_p)(((void*) h) + HEADER_SIZE + block_size(h));
 }
 
-static __inline__ set_size(header_p h, size_t s)
+static __inline__ void set_size(header_p h, size_t s)
 {
     h->size = s;
     footer(h)->size = block_size(h);

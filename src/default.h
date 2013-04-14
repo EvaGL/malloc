@@ -31,8 +31,9 @@
 //------------------------------
 
 #define AA (1 << ALIGN_LOG)
-#define SBRKA (1 << SBRK_AL_LOG)
+#define PS_LOG 12
+#define PAGE_SIZE 4096
 
-#define sbrk_align(s) (((((s) - 1) >> SBRK_AL_LOG) << SBRK_AL_LOG) + SBRKA)
 #define alloc_align(s) (((((s) - 1) >> ALIGN_LOG) << ALIGN_LOG) + AA)
+#define page_align(s) (((((s) - 1) >> PS_LOG) << PS_LOG) + PAGE_SIZE)
 

@@ -4,7 +4,11 @@
 #ifdef FITTING
     #include "fit_malloc.h"
 #endif
-              
+
+#ifdef COMPACTING
+    #include "selfcompact.h"
+#endif
+
 void *malloc(size_t size)
 {
     MDEBUG("Allocate %d byte\n", size);

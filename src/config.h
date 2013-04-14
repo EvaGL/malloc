@@ -11,7 +11,6 @@
 #define ALLOW_MERGE
 
 #define ALIGN_LOG 2
-#define SBRK_AL_LOG 12
 
 #define MALLOC_DEBUG 0
 #include "default.h"

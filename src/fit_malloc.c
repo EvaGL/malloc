@@ -221,7 +221,8 @@ header_p find_fit_block(size_t size)
 
     if (!find_one)
     {
-        our_choose = morecore(size + META_SIZE);
+        size_t p_size = page_align(size + META_SIZE);
+        our_choose = morecore(p_size);
         if (our_choose == NULL)
             return NULL;
         total_mem += block_size(our_choose) + META_SIZE;
