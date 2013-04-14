@@ -54,7 +54,56 @@ void init_heap() {
 }
 
 void compact() {
-
+    void *threshold = heap;
+    void *curr = threshold;
+    void* last = NULL;
+    while (curr != NULL) {
+        if (threshold < curr_handler) {
+            int* a = (int*)threshold;
+            int* b = (int*)curr;
+            for (int i = 0; i < PAGE_SIZE / sizeof(int); ++i) {
+                *a = *b;
+                ++a; ++b;
+            }
+            curr = threshold;
+            threshold = (void*) a;
+            ((handler_p) curr)->last = b;
+            last = b;
+        }
+        handler_p curr_h = (handler_p) curr;
+        for (int i = 0; i < curr_h->size; ++i) {
+            item header = curr_h->items[i];
+            last = header.data + header.size;
+            if (is_free(header)) {
+                int* a = (int*) threshold;
+                int* b = (int*) header.data;
+                for (int i = 0; i < header.size/ sizeof(int); ++i) {
+                    *a = *b;
+                    ++a; ++b;
+                }
+                header.data = threshold;
+                threshold = (void*) a;
+            }
+        }
+        if (curr_h->next == NULL) {
+            void* data = threshold;
+            size_t size = last - threshold;
+            if (curr_h->items + curr_h->size != curr_h->last) {
+                item& header = curr_h->items[++curr_h->size];
+                header.data = data;
+                header.size = size;
+                set_free(header);
+            } else {
+                handler_p new_page = new_page();
+                if (new_page != NULL) {
+                    new_page->size = 1;
+                    
+                }
+            }
+            return;
+        }
+        curr = (void*) curr_h->next;
+    }
 }
 
 void* get_block(size_t size) {
@@ -97,12 +146,7 @@ void* internal_allocate(size_t size) {
 }
 
 void internal_free(void* ptr) {
-
+    item_p item = (item_p) ptr;
+    set_free(item);
 }
 
-void* malloc(size_t size) {
-    return get_block(alloc_align(size));
-}
-
-void free(void* ptr) {
-}
