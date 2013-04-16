@@ -14,7 +14,7 @@ void* morecore(size_t size)
     #ifdef MAX_HEAP_SIZE
     if (can_allow <= 0)
         return NULL;
-    if (s < can_allow)
+    if (s > can_allow)
         return NULL;
     can_allow -= s;
     #endif

@@ -54,16 +54,18 @@ void init_heap() {
 }
 
 void print_heap_dump() {
+    printf("========= HEAP DUMP =========\n");
     handler_p curr_h = heap;
     while (curr_h != NULL) {
         for (int i = 0; i < curr_h->size; ++i) {
             item& curr = curr_h->items[i];
             if (curr.size != 0) {
-                printf("%p %c %7db\n", curr.data, is_free(curr) ? 'f' : 'u', curr.size);
+                printf("%p %c %7db\n", curr.data, is_free(curr) ? 'f' : 'u', curr.size & (~1));
             }
         }
         curr_h = curr_h->next;
     }
+    printf("=============================\n");
 }
 void compact() {
     void *threshold = heap;
@@ -71,6 +73,7 @@ void compact() {
     void* last = NULL;
     handler_p low_h = heap;
     int low_i = 0;
+    bool wasCopy = false;
     while (curr != NULL) {
         if (threshold < curr) {
             int* a = (int*)threshold;
@@ -83,12 +86,13 @@ void compact() {
             threshold = (void*) a;
             ((handler_p) curr)->last = b;
             last = b;
+            wasCopy = true;
         }
         handler_p curr_h = (handler_p) curr;
         for (int i = 0; i < curr_h->size; ++i) {
             item header = curr_h->items[i];
-            last = header.data + header.size;
-            if (is_free(header)) {
+            last = (char*)header.data + header.size; 
+            if (!is_free(header)) {
                 int* a = (int*) threshold;
                 int* b = (int*) header.data;
                 for (int i = 0; i < header.size/ sizeof(int); ++i) {
@@ -103,12 +107,15 @@ void compact() {
                     low_h = low_h->next;
                     low_i = 0;
                 }
-            } else if (curr_h == low_h && i == low_i){
-                low_i++;
+                wasCopy = true;
+            } else if (!wasCopy){
+                low_i = i;
+                low_h = curr_h;
                 if (low_h->items + low_i == low_h->last) {
                     low_h = low_h->next;
                     low_i = 0;
                 }
+                threshold = low_h->items[low_i].data;
             }
         }
         if (curr_h->next == NULL) {
@@ -131,9 +138,11 @@ void* get_block(size_t size) {
     while (curr_handler != NULL) {
         int index = 0;
         while (index < curr_handler->size) {
-            item header = curr_handler->items[index];
-            if (block_size(header) <= size && is_free(header))  
+            item& header = curr_handler->items[index];
+            if (block_size(header) >= size && is_free(header)) {  
+                set_used(header);
                 return &header;
+            }
             index++;
         }
         if (curr_handler->items + index == curr_handler->last) {
