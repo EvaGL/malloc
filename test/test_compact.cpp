@@ -11,11 +11,11 @@ int main() {
     for (int i = 0; i < n; ++i)
         sum += *(a[i]);
     printf("%d\n", sum);
-    free(a);
-
     heap_pointer<s> ps = allocate<s>(1);
+    free(a);
     ps->a = 1;
     ps->b = 2;
     printf("%d\n", ps->a);
     printf("%d\n", ps->b);
+    print_heap_dump();
 }

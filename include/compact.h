@@ -46,4 +46,5 @@ void free(heap_pointer<T> ptr) {
    internal_free((void*)*ptr); 
 }
 
+void print_heap_dump();
 #endif

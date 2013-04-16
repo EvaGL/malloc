@@ -53,12 +53,26 @@ void init_heap() {
     heap = new_page();
 }
 
+void print_heap_dump() {
+    handler_p curr_h = heap;
+    while (curr_h != NULL) {
+        for (int i = 0; i < curr_h->size; ++i) {
+            item& curr = curr_h->items[i];
+            if (curr.size != 0) {
+                printf("%p %c %7db\n", curr.data, is_free(curr) ? 'f' : 'u', curr.size);
+            }
+        }
+        curr_h = curr_h->next;
+    }
+}
 void compact() {
     void *threshold = heap;
     void *curr = threshold;
     void* last = NULL;
+    handler_p low_h = heap;
+    int low_i = 0;
     while (curr != NULL) {
-        if (threshold < curr_handler) {
+        if (threshold < curr) {
             int* a = (int*)threshold;
             int* b = (int*)curr;
             for (int i = 0; i < PAGE_SIZE / sizeof(int); ++i) {
@@ -83,23 +97,29 @@ void compact() {
                 }
                 header.data = threshold;
                 threshold = (void*) a;
+                low_h->items[low_i] = header;
+                low_i++;
+                if (low_h->items + low_i == low_h->last) {
+                    low_h = low_h->next;
+                    low_i = 0;
+                }
+            } else if (curr_h == low_h && i == low_i){
+                low_i++;
+                if (low_h->items + low_i == low_h->last) {
+                    low_h = low_h->next;
+                    low_i = 0;
+                }
             }
         }
         if (curr_h->next == NULL) {
             void* data = threshold;
-            size_t size = last - threshold;
-            if (curr_h->items + curr_h->size != curr_h->last) {
-                item& header = curr_h->items[++curr_h->size];
-                header.data = data;
-                header.size = size;
-                set_free(header);
-            } else {
-                handler_p new_page = new_page();
-                if (new_page != NULL) {
-                    new_page->size = 1;
-                    
-                }
-            }
+            size_t size = (char*)last - (char*)threshold;
+            item& free_item = low_h->items[low_i];
+            free_item.size = size;
+            set_free(free_item);
+            free_item.data = data;
+            low_h->size = low_i + 1;
+            low_h->next = NULL;
             return;
         }
         curr = (void*) curr_h->next;
@@ -140,13 +160,15 @@ void* get_block(size_t size) {
 void* internal_allocate(size_t size) {
     if (heap == NULL) init_heap();
     void* ptr = get_block(alloc_align(size));
-    if (ptr == NULL)
-        return NULL;
+    if (ptr == NULL) {
+        compact();
+        ptr = get_block(alloc_align(size));
+    }
     return ptr; 
 }
 
 void internal_free(void* ptr) {
     item_p item = (item_p) ptr;
-    set_free(item);
+    set_free(*item);
 }
 
