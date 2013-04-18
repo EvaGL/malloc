@@ -1,5 +1,5 @@
 #include "../include/compact.h"
-
+#include <sys/mman.h>
 extern "C" {
 #include "morecore.h"
 }
@@ -42,7 +42,7 @@ struct handler{
 handler_p heap = NULL;
 
 handler_p new_page() {
-    handler_p page = (handler_p)morecore(PAGE_SIZE);
+    handler_p page = (handler_p) mmap(0, PAGE_SIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     page->next = NULL;
     page->last = ((void*) page) + PAGE_SIZE;
     page->size = 0;
@@ -59,7 +59,7 @@ void print_heap_dump() {
     while (curr_h != NULL) {
         for (int i = 0; i < curr_h->size; ++i) {
             item& curr = curr_h->items[i];
-            if (curr.size != 0) {
+            if (curr.size != 0 && curr.data != NULL) {
                 printf("%p %c %7db\n", curr.data, is_free(curr) ? 'f' : 'u', curr.size & (~1));
             }
         }
@@ -68,68 +68,46 @@ void print_heap_dump() {
     printf("=============================\n");
 }
 void compact() {
-    void *threshold = heap;
-    void *curr = threshold;
+    void *threshold = NULL;
     void* last = NULL;
-    handler_p low_h = heap;
-    int low_i = 0;
-    bool wasCopy = false;
-    while (curr != NULL) {
-        if (threshold < curr) {
-            int* a = (int*)threshold;
-            int* b = (int*)curr;
-            for (int i = 0; i < PAGE_SIZE / sizeof(int); ++i) {
-                *a = *b;
-                ++a; ++b;
-            }
-            curr = threshold;
-            threshold = (void*) a;
-            ((handler_p) curr)->last = b;
-            last = b;
-            wasCopy = true;
-        }
-        handler_p curr_h = (handler_p) curr;
+    handler_p curr_h = heap;
+    while (curr_h != NULL) {
         for (int i = 0; i < curr_h->size; ++i) {
-            item header = curr_h->items[i];
+            item& header = curr_h->items[i];
             last = (char*)header.data + header.size; 
             if (!is_free(header)) {
-                int* a = (int*) threshold;
-                int* b = (int*) header.data;
-                for (int i = 0; i < header.size/ sizeof(int); ++i) {
+                if (threshold == NULL)
+                    continue;
+                char* a = (char*) threshold;
+                char* b = (char*) header.data;
+                for (int i = 0; i < header.size; ++i) {
                     *a = *b;
                     ++a; ++b;
                 }
                 header.data = threshold;
                 threshold = (void*) a;
-                low_h->items[low_i] = header;
-                low_i++;
-                if (low_h->items + low_i == low_h->last) {
-                    low_h = low_h->next;
-                    low_i = 0;
-                }
-                wasCopy = true;
-            } else if (!wasCopy){
-                low_i = i;
-                low_h = curr_h;
-                if (low_h->items + low_i == low_h->last) {
-                    low_h = low_h->next;
-                    low_i = 0;
-                }
-                threshold = low_h->items[low_i].data;
+            } else{
+                if (threshold == NULL)
+                    threshold = header.data;
+                header.data = NULL;
             }
         }
         if (curr_h->next == NULL) {
             void* data = threshold;
             size_t size = (char*)last - (char*)threshold;
-            item& free_item = low_h->items[low_i];
+            int i = curr_h->size;
+            if (curr_h->items + i == curr_h->last) {
+                curr_h->next = new_page();
+                curr_h = curr_h->next;
+                i = 1;
+            }
+            curr_h->size++;
+            item& free_item = curr_h->items[i];
             free_item.size = size;
             set_free(free_item);
             free_item.data = data;
-            low_h->size = low_i + 1;
-            low_h->next = NULL;
-            return;
         }
-        curr = (void*) curr_h->next;
+        curr_h = curr_h->next;
     }
 }
 
