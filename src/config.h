@@ -3,9 +3,9 @@
 
 #include <stddef.h>
 
-#define BEST_FIT
+#define FIRST_FIT
 
-#define MAX_HEAP_SIZE 4096
+//#define MAX_HEAP_SIZE 4096
 #define FIT_DELETE_USED
 #define ROUND_ROBIN
 #define ALLOW_MERGE

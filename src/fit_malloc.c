@@ -209,10 +209,10 @@ header_p find_fit_block(size_t size)
                 our_choose = curr;
                 fitting_param = block_size(curr);
             }
+            find_one = 1; 
             #ifdef FIRST_FIT
             break;
             #endif
-            find_one = 1; 
         }
         if (curr->next == last)
             break;
