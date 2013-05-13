@@ -4,148 +4,127 @@ extern "C" {
 #include "morecore.h"
 }
 
+#include<string.h>
+
 typedef struct item *item_p;
 struct item{
     void* data;
+    item_p next;
     size_t size;
 };
 
-static __inline__ size_t block_size(item &h)
+static __inline__ size_t block_size(item *h)
 {
-    return h.size & (~1);
+    return h->size & (~1);
 }
 
-static __inline__ int is_free(item& h)
+static __inline__ int is_free(item* h)
 {
-    return h.size & 1;
+    return h->size & 1;
 }
 
-static __inline__ void set_free(item& h)
+static __inline__ void set_free(item* h)
 {
-    h.size |= 1;
+    h->size |= 1;
 }
 
-static __inline__ void set_used(item& h)
+static __inline__ void set_used(item* h)
 {
-    h.size &= (~1);
+    h->size &= (~1);
 }
 
+item_p unmatched = NULL;
+item_p matched = NULL;
 
-typedef struct handler *handler_p; 
-struct handler{
-    handler_p next;
-    size_t size;
-    void* last;
-    item items[1];
-};
-
-handler_p heap = NULL;
-
-handler_p new_page() {
-    handler_p page = (handler_p) mmap(0, PAGE_SIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-    page->next = NULL;
-    page->last = ((void*) page) + PAGE_SIZE;
-    page->size = 0;
-
+void new_page() {
+    void* page = mmap(0, PAGE_SIZE, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+    for (item_p i = (item_p) page; i < page + PAGE_SIZE; ++i) {
+        i->next = unmatched;
+        unmatched = i;
+    }
 }
 
-void init_heap() {
-    heap = new_page();
+item_p get_unmatched_item() {
+    if (unmatched == NULL)
+        new_page();
+    item_p res = unmatched;
+    if (res == NULL)
+        return NULL;
+    unmatched = unmatched->next;
+    res->next = NULL;
+    return res;
+}
+
+void* get_block(size_t size) {
+    item_p i = matched;
+    item_p* last = &matched;
+    while (i != NULL) {
+        if (is_free(i) && block_size(i) >= size)
+            return (void*)i;
+        last = &(i->next);
+        i = i->next;
+    }
+    i = get_unmatched_item();
+    if (i == NULL)
+        return NULL;
+    void* data = morecore(size);
+    if (data == NULL) {
+        i->next = unmatched;
+        unmatched = i;
+        return NULL;
+    }
+    *last = i;
+    i->data = data;
+    i->size = size;
+    set_used(i);
+    return (void*)i;
 }
 
 void print_heap_dump() {
     printf("========= HEAP DUMP =========\n");
-    handler_p curr_h = heap;
-    while (curr_h != NULL) {
-        for (int i = 0; i < curr_h->size; ++i) {
-            item& curr = curr_h->items[i];
-            if (curr.size != 0 && curr.data != NULL) {
-                printf("%p %c %7db\n", curr.data, is_free(curr) ? 'f' : 'u', curr.size & (~1));
-            }
-        }
-        curr_h = curr_h->next;
+    item_p i = matched;
+    while (i != NULL) {
+        printf("%p %c %7db\n", i->data, is_free(i) ? 'f' : 'u', i->size & (~1));
+        i = i->next;
     }
     printf("=============================\n");
 }
-void compact() {
-    void *threshold = NULL;
-    void* last = NULL;
-    handler_p curr_h = heap;
-    while (curr_h != NULL) {
-        for (int i = 0; i < curr_h->size; ++i) {
-            item& header = curr_h->items[i];
-            last = (char*)header.data + header.size; 
-            if (!is_free(header)) {
-                if (threshold == NULL)
-                    continue;
-                char* a = (char*) threshold;
-                char* b = (char*) header.data;
-                for (int i = 0; i < header.size; ++i) {
-                    *a = *b;
-                    ++a; ++b;
-                }
-                header.data = threshold;
-                threshold = (void*) a;
-            } else{
-                if (threshold == NULL)
-                    threshold = header.data;
-                header.data = NULL;
-            }
-        }
-        if (curr_h->next == NULL) {
-            void* data = threshold;
-            size_t size = (char*)last - (char*)threshold;
-            int i = curr_h->size;
-            if (curr_h->items + i == curr_h->last) {
-                curr_h->next = new_page();
-                curr_h = curr_h->next;
-                i = 1;
-            }
-            curr_h->size++;
-            item& free_item = curr_h->items[i];
-            free_item.size = size;
-            set_free(free_item);
-            free_item.data = data;
-        }
-        curr_h = curr_h->next;
-    }
-}
 
-void* get_block(size_t size) {
-    handler_p curr_handler = heap;
-    while (curr_handler != NULL) {
-        int index = 0;
-        while (index < curr_handler->size) {
-            item& header = curr_handler->items[index];
-            if (block_size(header) >= size && is_free(header)) {  
-                set_used(header);
-                return &header;
+void compact() {
+    void* threshold = NULL;
+    void* last = NULL;
+    item_p i = matched;
+    item_p* prev = &matched;
+    while (i != NULL) {
+        print_heap_dump();
+        threshold = i->data + block_size(i);
+        if (is_free(i)) {
+            *prev = i->next;
+            i->next = unmatched;
+            unmatched = i;
+            if (last == NULL)
+                last = i->data;
+            i = *prev;
+        } else {
+            if (last != NULL) {
+                memcpy(last, i->data, block_size(i));
+                i->data = last;
+                last = last + block_size(i);
+                prev = &(i->next);
+                i = i->next;
             }
-            index++;
-        }
-        if (curr_handler->items + index == curr_handler->last) {
-            if (curr_handler->next == NULL) {
-                curr_handler->next = new_page();
-            }
-            curr_handler = curr_handler->next;
-        }
-        else {
-            void* data = morecore(size);
-            if (data == NULL)
-                return NULL;
-            item& new_block = curr_handler->items[index];
-            new_block.size = size;
-            set_used(new_block);
-            new_block.data = data;
-            curr_handler->size++; 
-            return (void*)&new_block;
         }
     }
-    return NULL;
+    if (last != NULL && last != threshold) {
+        i = get_unmatched_item();
+        i->data = last;
+        i->size = (char*)threshold - (char*)last;
+        set_free(i);
+        *prev = i;
+    }
 }
 
 void* internal_allocate(size_t size) {
-    if (heap == NULL) init_heap();
     void* ptr = get_block(alloc_align(size));
     if (ptr == NULL) {
         compact();
@@ -156,6 +135,6 @@ void* internal_allocate(size_t size) {
 
 void internal_free(void* ptr) {
     item_p item = (item_p) ptr;
-    set_free(*item);
+    set_free(item);
 }
 

@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 
-#define BEST_FIT
+#define FIRST_FIT
 
 #define MAX_HEAP_SIZE 4096
 #define FIT_DELETE_USED
@@ -12,6 +12,6 @@
 
 #define ALIGN_LOG 2
 
-#define MALLOC_DEBUG 0
+#define MALLOC_DEBUG 1
 #include "default.h"
 #endif
