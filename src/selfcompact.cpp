@@ -55,12 +55,29 @@ item_p get_unmatched_item() {
     return res;
 }
 
+void split_item(item_p i, size_t size) {
+    if (block_size(i) <= size)
+        return;
+    item_p j = get_unmatched_item();
+    if (j == NULL)
+        return;
+    j->size = block_size(i) - size;
+    i->size = size;
+    set_free(i); set_free(j);
+    j->data = i->data + size;
+    j->next = i->next;
+    i->next = j;
+}
+
 void* get_block(size_t size) {
     item_p i = matched;
     item_p* last = &matched;
     while (i != NULL) {
-        if (is_free(i) && block_size(i) >= size)
+        if (is_free(i) && block_size(i) >= size) {
+            split_item(i, size);
+            set_used(i);
             return (void*)i;
+        }
         last = &(i->next);
         i = i->next;
     }
@@ -96,7 +113,6 @@ void compact() {
     item_p i = matched;
     item_p* prev = &matched;
     while (i != NULL) {
-        print_heap_dump();
         threshold = i->data + block_size(i);
         if (is_free(i)) {
             *prev = i->next;
