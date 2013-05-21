@@ -50,5 +50,16 @@ heap_pointer<T> allocate(size_t num) {
     return heap_pointer<T>(internal_allocate(num * sizeof(T)));
 }
 
+struct myinfo
+{
+    size_t arena;
+    size_t freemem;
+    size_t usdmem;
+    size_t freeblks;
+    size_t usdblks;
+    size_t maxfreeblk;
+};
+
 void print_heap_dump();
+struct myinfo myinfo();
 #endif

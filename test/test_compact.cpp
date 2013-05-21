@@ -11,12 +11,14 @@ int main() {
         pointers[i].free();
     }
     print_heap_dump();
+    struct myinfo info = myinfo();
     for (int i = 1; i < 10; i+= 2) {
         printf("%d ", *(pointers[i]));
     }
     printf("\n");
     allocate<int>(200);
     print_heap_dump();
+    info = myinfo();
     for (int i = 1; i < 10; i+= 2) {
         printf("%d ", *(pointers[i]));
     }
