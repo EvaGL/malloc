@@ -30,6 +30,13 @@ public:
         return heap_pointer((void*)pointer, index);
     }
 
+    bool operator==(heap_pointer<T>& t) {
+        return (pointer == t.pointer && index == t.index);
+    }
+
+    bool operator!=(heap_pointer<T>& t) {
+        return (pointer != t.pointer || index != t.index);
+    }
     void operator=(T elem) {
  //       printf("assign to %p[%d]\n", *pointer, index);
         *(T*)(*pointer + index * sizeof(T)) = elem;
