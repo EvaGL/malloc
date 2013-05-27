@@ -5,7 +5,6 @@ extern "C" {
 }
 
 #include<string.h>
-#define COMPACT_THRESHOLD 0.7
 
 typedef struct item *item_p;
 struct item{
@@ -106,13 +105,15 @@ void* get_block(size_t size) {
         return NULL;
     }
     arena += page_size;
-    usdmem += page_size;
+    freemem += page_size;
     usdblks++;
     *last = i;
     i->data = data;
-    i->size = size;
+    i->size = page_size;
     split_item(i, size);
     set_used(i);
+    freemem -= block_size(i);
+    usdmem += block_size(i);
     return (void*)i;
 }
 
@@ -159,8 +160,8 @@ void compact() {
                 i->data = last;
                 last = last + block_size(i);
                 prev = &(i->next);
-                i = i->next;
             }
+            i = i->next;
         }
     }
     freeblks = 0;
@@ -178,7 +179,7 @@ void try_compact() {
     if (arena != 0 && freemem != 0) {
        struct myinfo stat = myinfo();
        double fragm = ((double)(stat.freemem - stat.maxfreeblk) * 100) / stat.freemem;
-      if (fragm > COMPACT_THRESHOLD) compact();
+      if (fragm > 70) compact();
     }
 }
 
