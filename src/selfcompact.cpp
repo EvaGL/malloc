@@ -5,6 +5,7 @@ extern "C" {
 }
 
 #include<string.h>
+#define COMPACT_THRESHOLD 0.7
 
 typedef struct item *item_p;
 struct item{
@@ -97,18 +98,20 @@ void* get_block(size_t size) {
     i = get_unmatched_item();
     if (i == NULL)
         return NULL;
-    void* data = morecore(size);
+    size_t page_size = page_align(size);
+    void* data = morecore(page_size);
     if (data == NULL) {
         i->next = unmatched;
         unmatched = i;
         return NULL;
     }
-    arena += alloc_align(size);
-    usdmem += alloc_align(size);
+    arena += page_size;
+    usdmem += page_size;
     usdblks++;
     *last = i;
     i->data = data;
     i->size = size;
+    split_item(i, size);
     set_used(i);
     return (void*)i;
 }
@@ -171,12 +174,21 @@ void compact() {
     }
 }
 
+void try_compact() {
+    if (arena != 0 && freemem != 0) {
+       struct myinfo stat = myinfo();
+       double fragm = ((double)(stat.freemem - stat.maxfreeblk) * 100) / stat.freemem;
+      if (fragm > COMPACT_THRESHOLD) compact();
+    }
+}
+
 void* internal_allocate(size_t size) {
     void* ptr = get_block(alloc_align(size));
     if (ptr == NULL) {
         compact();
         ptr = get_block(alloc_align(size));
     }
+    try_compact();
     return ptr; 
 }
 
@@ -187,5 +199,6 @@ void internal_free(void* ptr) {
     usdblks--;
     freemem += block_size(item);
     usdmem -= block_size(item);
+    try_compact();
 }
 
